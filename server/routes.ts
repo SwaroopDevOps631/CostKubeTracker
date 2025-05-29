@@ -8,6 +8,9 @@ import {
   insertCostMetricSchema,
   insertAlertSchema,
   insertOptimizationRecommendationSchema,
+  insertPodMetricSchema,
+  insertDeploymentEventSchema,
+  insertMonitoringAlertSchema,
   DashboardFilters 
 } from "@shared/schema";
 
@@ -214,6 +217,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(recommendation);
     } catch (error) {
       res.status(400).json({ message: "Invalid recommendation data" });
+    }
+  });
+
+  // Monitoring endpoints
+  app.get("/api/workload-monitoring", async (req, res) => {
+    try {
+      const filters: Partial<DashboardFilters> = {
+        timeRange: req.query.timeRange as string,
+        clusters: req.query.clusters ? (req.query.clusters as string).split(",") : undefined,
+        namespaces: req.query.namespaces ? (req.query.namespaces as string).split(",") : undefined,
+        workloadTypes: req.query.workloadTypes ? (req.query.workloadTypes as string).split(",") : undefined,
+      };
+      
+      const workloadMonitoring = await storage.getWorkloadMonitoring(filters);
+      res.json(workloadMonitoring);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch workload monitoring data" });
+    }
+  });
+
+  app.get("/api/cluster-monitoring-overview", async (req, res) => {
+    try {
+      const clusterId = req.query.clusterId ? parseInt(req.query.clusterId as string) : undefined;
+      const overview = await storage.getClusterMonitoringOverview(clusterId);
+      res.json(overview);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch cluster monitoring overview" });
+    }
+  });
+
+  app.get("/api/metric-trends", async (req, res) => {
+    try {
+      const filters: Partial<DashboardFilters> = {
+        timeRange: req.query.timeRange as string,
+        clusters: req.query.clusters ? (req.query.clusters as string).split(",") : undefined,
+        namespaces: req.query.namespaces ? (req.query.namespaces as string).split(",") : undefined,
+        workloadTypes: req.query.workloadTypes ? (req.query.workloadTypes as string).split(",") : undefined,
+      };
+      
+      const trends = await storage.getMetricTrends(filters);
+      res.json(trends);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch metric trends" });
+    }
+  });
+
+  app.get("/api/pod-metrics", async (req, res) => {
+    try {
+      const workloadId = req.query.workloadId ? parseInt(req.query.workloadId as string) : undefined;
+      const timeRange = req.query.timeRange as string;
+      const metrics = await storage.getPodMetrics(workloadId, timeRange);
+      res.json(metrics);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch pod metrics" });
+    }
+  });
+
+  app.get("/api/deployment-events", async (req, res) => {
+    try {
+      const workloadId = req.query.workloadId ? parseInt(req.query.workloadId as string) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const events = await storage.getDeploymentEvents(workloadId, limit);
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch deployment events" });
+    }
+  });
+
+  app.get("/api/monitoring-alerts", async (req, res) => {
+    try {
+      const isResolved = req.query.resolved ? req.query.resolved === "true" : undefined;
+      const alerts = await storage.getMonitoringAlerts(isResolved);
+      res.json(alerts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch monitoring alerts" });
+    }
+  });
+
+  app.post("/api/monitoring-alerts", async (req, res) => {
+    try {
+      const validatedData = insertMonitoringAlertSchema.parse(req.body);
+      const alert = await storage.createMonitoringAlert(validatedData);
+      res.status(201).json(alert);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid monitoring alert data" });
+    }
+  });
+
+  app.patch("/api/monitoring-alerts/:id/resolve", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const alert = await storage.resolveMonitoringAlert(id);
+      if (!alert) {
+        return res.status(404).json({ message: "Monitoring alert not found" });
+      }
+      res.json(alert);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to resolve monitoring alert" });
     }
   });
 

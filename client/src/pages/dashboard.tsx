@@ -6,9 +6,13 @@ import { NamespaceCostBreakdown } from "@/components/namespace-cost-breakdown";
 import { WorkloadCostTable } from "@/components/workload-cost-table";
 import { AlertsSection } from "@/components/alerts-section";
 import { OptimizationRecommendations } from "@/components/optimization-recommendations";
+import { MonitoringOverviewCards } from "@/components/monitoring-overview-cards";
+import { WorkloadMonitoringTable } from "@/components/workload-monitoring-table";
+import { MetricTrendsChart } from "@/components/metric-trends-chart";
 import { FiltersSidebar } from "@/components/filters-sidebar";
 import { Button } from "@/components/ui/button";
-import { Bell, User, RefreshCw, Download } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Bell, User, RefreshCw, Download, DollarSign, Activity } from "lucide-react";
 import type { DashboardFilters } from "@shared/schema";
 
 export default function Dashboard() {
@@ -52,6 +56,27 @@ export default function Dashboard() {
   // Fetch optimization recommendations
   const { data: recommendations, isLoading: isLoadingRecommendations, refetch: refetchRecommendations } = useQuery({
     queryKey: ["/api/recommendations"],
+    enabled: true,
+  });
+
+  // Fetch monitoring data
+  const { data: monitoringOverview, isLoading: isLoadingMonitoringOverview, refetch: refetchMonitoringOverview } = useQuery({
+    queryKey: ["/api/cluster-monitoring-overview", filters],
+    enabled: true,
+  });
+
+  const { data: workloadMonitoring, isLoading: isLoadingWorkloadMonitoring, refetch: refetchWorkloadMonitoring } = useQuery({
+    queryKey: ["/api/workload-monitoring", filters],
+    enabled: true,
+  });
+
+  const { data: metricTrends, isLoading: isLoadingMetricTrends, refetch: refetchMetricTrends } = useQuery({
+    queryKey: ["/api/metric-trends", filters],
+    enabled: true,
+  });
+
+  const { data: monitoringAlerts, isLoading: isLoadingMonitoringAlerts, refetch: refetchMonitoringAlerts } = useQuery({
+    queryKey: ["/api/monitoring-alerts", { resolved: false }],
     enabled: true,
   });
 
