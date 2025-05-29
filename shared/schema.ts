@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, decimal, jsonb } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -166,6 +167,104 @@ export const insertMonitoringAlertSchema = createInsertSchema(monitoringAlerts).
   created_at: true,
   resolved_at: true,
 });
+
+// Relations
+export const clustersRelations = relations(clusters, ({ many }) => ({
+  namespaces: many(namespaces),
+  costMetrics: many(costMetrics),
+  alerts: many(alerts),
+  monitoringAlerts: many(monitoringAlerts),
+}));
+
+export const namespacesRelations = relations(namespaces, ({ one, many }) => ({
+  cluster: one(clusters, {
+    fields: [namespaces.cluster_id],
+    references: [clusters.id],
+  }),
+  workloads: many(workloads),
+  costMetrics: many(costMetrics),
+  alerts: many(alerts),
+  monitoringAlerts: many(monitoringAlerts),
+}));
+
+export const workloadsRelations = relations(workloads, ({ one, many }) => ({
+  namespace: one(namespaces, {
+    fields: [workloads.namespace_id],
+    references: [namespaces.id],
+  }),
+  costMetrics: many(costMetrics),
+  alerts: many(alerts),
+  optimizationRecommendations: many(optimizationRecommendations),
+  podMetrics: many(podMetrics),
+  deploymentEvents: many(deploymentEvents),
+  monitoringAlerts: many(monitoringAlerts),
+}));
+
+export const costMetricsRelations = relations(costMetrics, ({ one }) => ({
+  cluster: one(clusters, {
+    fields: [costMetrics.cluster_id],
+    references: [clusters.id],
+  }),
+  namespace: one(namespaces, {
+    fields: [costMetrics.namespace_id],
+    references: [namespaces.id],
+  }),
+  workload: one(workloads, {
+    fields: [costMetrics.workload_id],
+    references: [workloads.id],
+  }),
+}));
+
+export const alertsRelations = relations(alerts, ({ one }) => ({
+  cluster: one(clusters, {
+    fields: [alerts.cluster_id],
+    references: [clusters.id],
+  }),
+  namespace: one(namespaces, {
+    fields: [alerts.namespace_id],
+    references: [namespaces.id],
+  }),
+  workload: one(workloads, {
+    fields: [alerts.workload_id],
+    references: [workloads.id],
+  }),
+}));
+
+export const optimizationRecommendationsRelations = relations(optimizationRecommendations, ({ one }) => ({
+  workload: one(workloads, {
+    fields: [optimizationRecommendations.workload_id],
+    references: [workloads.id],
+  }),
+}));
+
+export const podMetricsRelations = relations(podMetrics, ({ one }) => ({
+  workload: one(workloads, {
+    fields: [podMetrics.workload_id],
+    references: [workloads.id],
+  }),
+}));
+
+export const deploymentEventsRelations = relations(deploymentEvents, ({ one }) => ({
+  workload: one(workloads, {
+    fields: [deploymentEvents.workload_id],
+    references: [workloads.id],
+  }),
+}));
+
+export const monitoringAlertsRelations = relations(monitoringAlerts, ({ one }) => ({
+  cluster: one(clusters, {
+    fields: [monitoringAlerts.cluster_id],
+    references: [clusters.id],
+  }),
+  namespace: one(namespaces, {
+    fields: [monitoringAlerts.namespace_id],
+    references: [namespaces.id],
+  }),
+  workload: one(workloads, {
+    fields: [monitoringAlerts.workload_id],
+    references: [workloads.id],
+  }),
+}));
 
 // Types
 export type Cluster = typeof clusters.$inferSelect;

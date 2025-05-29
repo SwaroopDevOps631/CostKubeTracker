@@ -534,4 +534,294 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database Storage Implementation
+export class DatabaseStorage implements IStorage {
+  // Clusters
+  async getClusters(): Promise<Cluster[]> {
+    return await db.select().from(clusters);
+  }
+
+  async getCluster(id: number): Promise<Cluster | undefined> {
+    const [cluster] = await db.select().from(clusters).where(eq(clusters.id, id));
+    return cluster || undefined;
+  }
+
+  async createCluster(cluster: InsertCluster): Promise<Cluster> {
+    const [newCluster] = await db.insert(clusters).values(cluster).returning();
+    return newCluster;
+  }
+
+  // Namespaces
+  async getNamespaces(clusterId?: number): Promise<Namespace[]> {
+    if (clusterId) {
+      return await db.select().from(namespaces).where(eq(namespaces.cluster_id, clusterId));
+    }
+    return await db.select().from(namespaces);
+  }
+
+  async getNamespace(id: number): Promise<Namespace | undefined> {
+    const [namespace] = await db.select().from(namespaces).where(eq(namespaces.id, id));
+    return namespace || undefined;
+  }
+
+  async createNamespace(namespace: InsertNamespace): Promise<Namespace> {
+    const [newNamespace] = await db.insert(namespaces).values(namespace).returning();
+    return newNamespace;
+  }
+
+  // Workloads
+  async getWorkloads(namespaceId?: number): Promise<Workload[]> {
+    if (namespaceId) {
+      return await db.select().from(workloads).where(eq(workloads.namespace_id, namespaceId));
+    }
+    return await db.select().from(workloads);
+  }
+
+  async getWorkload(id: number): Promise<Workload | undefined> {
+    const [workload] = await db.select().from(workloads).where(eq(workloads.id, id));
+    return workload || undefined;
+  }
+
+  async createWorkload(workload: InsertWorkload): Promise<Workload> {
+    const [newWorkload] = await db.insert(workloads).values(workload).returning();
+    return newWorkload;
+  }
+
+  // Cost Metrics
+  async getCostMetrics(filters: Partial<DashboardFilters>): Promise<CostMetric[]> {
+    return await db.select().from(costMetrics).orderBy(desc(costMetrics.date));
+  }
+
+  async createCostMetric(metric: InsertCostMetric): Promise<CostMetric> {
+    const [newMetric] = await db.insert(costMetrics).values(metric).returning();
+    return newMetric;
+  }
+
+  async getCostOverview(filters: Partial<DashboardFilters>): Promise<CostOverviewMetrics> {
+    // Return sample data for now - can be enhanced with real calculations
+    return {
+      totalCost: 0,
+      dailyAverage: 0,
+      activePods: 0,
+      costPerPod: 0,
+      efficiencyScore: 0,
+      totalChange: 0,
+      dailyChange: 0,
+      podsChange: 0,
+      perPodChange: 0,
+    };
+  }
+
+  async getNamespaceCosts(filters: Partial<DashboardFilters>): Promise<NamespaceCostData[]> {
+    return [];
+  }
+
+  async getCostTrend(filters: Partial<DashboardFilters>): Promise<CostTrendData[]> {
+    return [];
+  }
+
+  async getWorkloadCosts(filters: Partial<DashboardFilters>): Promise<WorkloadCostData[]> {
+    const workloadList = await db.select().from(workloads);
+    const namespaceList = await db.select().from(namespaces);
+    const clusterList = await db.select().from(clusters);
+
+    return workloadList.map(workload => {
+      const namespace = namespaceList.find(ns => ns.id === workload.namespace_id);
+      const cluster = clusterList.find(c => c.id === namespace?.cluster_id);
+      
+      return {
+        id: workload.id,
+        name: workload.name,
+        namespace: namespace?.name || "unknown",
+        type: workload.type,
+        cluster: cluster?.name || "unknown",
+        pods: workload.replicas,
+        cost: 0,
+        avgCostPerPod: 0,
+        trend: 0,
+        labels: workload.labels as Record<string, string> || {},
+      };
+    });
+  }
+
+  // Alerts
+  async getAlerts(isResolved?: boolean): Promise<Alert[]> {
+    let query = db.select().from(alerts);
+    if (isResolved !== undefined) {
+      query = query.where(eq(alerts.is_resolved, isResolved));
+    }
+    return await query.orderBy(desc(alerts.created_at));
+  }
+
+  async createAlert(alert: InsertAlert): Promise<Alert> {
+    const [newAlert] = await db.insert(alerts).values(alert).returning();
+    return newAlert;
+  }
+
+  async resolveAlert(id: number): Promise<Alert | undefined> {
+    const [updatedAlert] = await db
+      .update(alerts)
+      .set({ is_resolved: true, resolved_at: new Date() })
+      .where(eq(alerts.id, id))
+      .returning();
+    return updatedAlert || undefined;
+  }
+
+  // Optimization Recommendations
+  async getOptimizationRecommendations(workloadId?: number): Promise<OptimizationRecommendation[]> {
+    let query = db.select().from(optimizationRecommendations);
+    if (workloadId) {
+      query = query.where(eq(optimizationRecommendations.workload_id, workloadId));
+    }
+    return await query.orderBy(desc(optimizationRecommendations.created_at));
+  }
+
+  async createOptimizationRecommendation(recommendation: InsertOptimizationRecommendation): Promise<OptimizationRecommendation> {
+    const [newRecommendation] = await db.insert(optimizationRecommendations).values(recommendation).returning();
+    return newRecommendation;
+  }
+
+  // Pod Metrics & Monitoring
+  async getPodMetrics(workloadId?: number, timeRange?: string): Promise<PodMetric[]> {
+    let query = db.select().from(podMetrics);
+    if (workloadId) {
+      query = query.where(eq(podMetrics.workload_id, workloadId));
+    }
+    return await query.orderBy(desc(podMetrics.timestamp));
+  }
+
+  async createPodMetric(metric: InsertPodMetric): Promise<PodMetric> {
+    const [newMetric] = await db.insert(podMetrics).values(metric).returning();
+    return newMetric;
+  }
+
+  async getWorkloadMonitoring(filters: Partial<DashboardFilters>): Promise<WorkloadMonitoringData[]> {
+    const workloadList = await db.select().from(workloads);
+    const namespaceList = await db.select().from(namespaces);
+    const clusterList = await db.select().from(clusters);
+
+    return workloadList.map(workload => {
+      const namespace = namespaceList.find(ns => ns.id === workload.namespace_id);
+      const cluster = clusterList.find(c => c.id === namespace?.cluster_id);
+      
+      // Generate sample pod health data
+      const pods: PodHealthData[] = Array.from({ length: workload.replicas }, (_, i) => ({
+        podName: `${workload.name}-${Math.random().toString(36).substr(2, 10)}`,
+        status: Math.random() > 0.1 ? "Running" : "Pending",
+        restartCount: Math.floor(Math.random() * 3),
+        cpuUsage: Math.floor(Math.random() * 800 + 200),
+        memoryUsage: Math.floor(Math.random() * 1073741824 + 536870912),
+        cpuLimit: 1000,
+        memoryLimit: 1073741824,
+        cpuUtilization: Math.floor(Math.random() * 60 + 20),
+        memoryUtilization: Math.floor(Math.random() * 70 + 30),
+        networkRxBytes: Math.floor(Math.random() * 1000000),
+        networkTxBytes: Math.floor(Math.random() * 1000000),
+        uptime: Math.floor(Math.random() * 86400 * 7),
+      }));
+
+      const runningPods = pods.filter(p => p.status === "Running").length;
+      const totalRestarts = pods.reduce((sum, p) => sum + p.restartCount, 0);
+      const avgCpuUsage = pods.reduce((sum, p) => sum + p.cpuUtilization, 0) / pods.length;
+      const avgMemoryUsage = pods.reduce((sum, p) => sum + p.memoryUtilization, 0) / pods.length;
+
+      return {
+        id: workload.id,
+        name: workload.name,
+        namespace: namespace?.name || "unknown",
+        type: workload.type,
+        cluster: cluster?.name || "unknown",
+        replicas: workload.replicas,
+        readyReplicas: runningPods,
+        availableReplicas: runningPods,
+        avgCpuUsage,
+        avgMemoryUsage,
+        totalRestarts,
+        status: runningPods === workload.replicas ? "Healthy" : "Degraded",
+        pods,
+      };
+    });
+  }
+
+  async getClusterMonitoringOverview(clusterId?: number): Promise<ClusterMonitoringOverview> {
+    const workloadMonitoring = await this.getWorkloadMonitoring({});
+    const monitoringAlertsList = await this.getMonitoringAlerts(false);
+    
+    const totalPods = workloadMonitoring.reduce((sum, w) => sum + w.replicas, 0);
+    const runningPods = workloadMonitoring.reduce((sum, w) => sum + w.readyReplicas, 0);
+    const pendingPods = totalPods - runningPods;
+    const totalRestarts = workloadMonitoring.reduce((sum, w) => sum + w.totalRestarts, 0);
+    
+    return {
+      totalPods,
+      runningPods,
+      pendingPods,
+      failedPods: 0,
+      totalCpuUsage: 1200,
+      totalMemoryUsage: 8589934592,
+      totalCpuCapacity: 4000,
+      totalMemoryCapacity: 17179869184,
+      clusterUtilization: 75,
+      totalRestarts,
+      activeAlerts: monitoringAlertsList.length,
+    };
+  }
+
+  async getMetricTrends(filters: Partial<DashboardFilters>): Promise<MetricTrendData[]> {
+    const trends: MetricTrendData[] = [];
+    const now = new Date();
+    
+    for (let i = 23; i >= 0; i--) {
+      const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
+      trends.push({
+        timestamp: timestamp.toISOString(),
+        cpuUsage: Math.floor(Math.random() * 30 + 40),
+        memoryUsage: Math.floor(Math.random() * 40 + 50),
+        podCount: Math.floor(Math.random() * 5 + 20),
+        networkRx: Math.floor(Math.random() * 1000000 + 500000),
+        networkTx: Math.floor(Math.random() * 800000 + 400000),
+      });
+    }
+    
+    return trends;
+  }
+
+  // Deployment Events
+  async getDeploymentEvents(workloadId?: number, limit = 50): Promise<DeploymentEvent[]> {
+    let query = db.select().from(deploymentEvents);
+    if (workloadId) {
+      query = query.where(eq(deploymentEvents.workload_id, workloadId));
+    }
+    return await query.orderBy(desc(deploymentEvents.created_at)).limit(limit);
+  }
+
+  async createDeploymentEvent(event: InsertDeploymentEvent): Promise<DeploymentEvent> {
+    const [newEvent] = await db.insert(deploymentEvents).values(event).returning();
+    return newEvent;
+  }
+
+  // Monitoring Alerts
+  async getMonitoringAlerts(isResolved?: boolean): Promise<MonitoringAlert[]> {
+    let query = db.select().from(monitoringAlerts);
+    if (isResolved !== undefined) {
+      query = query.where(eq(monitoringAlerts.is_resolved, isResolved));
+    }
+    return await query.orderBy(desc(monitoringAlerts.created_at));
+  }
+
+  async createMonitoringAlert(alert: InsertMonitoringAlert): Promise<MonitoringAlert> {
+    const [newAlert] = await db.insert(monitoringAlerts).values(alert).returning();
+    return newAlert;
+  }
+
+  async resolveMonitoringAlert(id: number): Promise<MonitoringAlert | undefined> {
+    const [updatedAlert] = await db
+      .update(monitoringAlerts)
+      .set({ is_resolved: true, resolved_at: new Date() })
+      .where(eq(monitoringAlerts.id, id))
+      .returning();
+    return updatedAlert || undefined;
+  }
+}
+
+export const storage = new DatabaseStorage();
