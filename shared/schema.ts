@@ -71,6 +71,54 @@ export const optimizationRecommendations = pgTable("optimization_recommendations
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const podMetrics = pgTable("pod_metrics", {
+  id: serial("id").primaryKey(),
+  workload_id: integer("workload_id").notNull(),
+  pod_name: text("pod_name").notNull(),
+  node_name: text("node_name"),
+  status: text("status").notNull(), // Running, Pending, Failed, Succeeded, Unknown
+  cpu_usage: decimal("cpu_usage"), // millicores
+  memory_usage: decimal("memory_usage"), // bytes
+  cpu_limit: decimal("cpu_limit"),
+  memory_limit: decimal("memory_limit"),
+  restart_count: integer("restart_count").notNull().default(0),
+  network_rx_bytes: decimal("network_rx_bytes"),
+  network_tx_bytes: decimal("network_tx_bytes"),
+  last_restart_time: timestamp("last_restart_time"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  timestamp: timestamp("timestamp").notNull(),
+});
+
+export const deploymentEvents = pgTable("deployment_events", {
+  id: serial("id").primaryKey(),
+  workload_id: integer("workload_id").notNull(),
+  event_type: text("event_type").notNull(), // scale_up, scale_down, deploy, rollback, restart
+  message: text("message").notNull(),
+  reason: text("reason"),
+  involved_object: text("involved_object"), // pod name, replicaset name, etc.
+  severity: text("severity").notNull().default("info"), // info, warning, error
+  source_component: text("source_component"), // deployment-controller, kubelet, etc.
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const monitoringAlerts = pgTable("monitoring_alerts", {
+  id: serial("id").primaryKey(),
+  type: text("type").notNull(), // high_cpu, high_memory, pod_crash_loop, deployment_failed
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  severity: text("severity").notNull().default("medium"), // low, medium, high, critical
+  cluster_id: integer("cluster_id"),
+  namespace_id: integer("namespace_id"),
+  workload_id: integer("workload_id"),
+  pod_name: text("pod_name"),
+  threshold_value: decimal("threshold_value"),
+  current_value: decimal("current_value"),
+  metric_name: text("metric_name"), // cpu_usage, memory_usage, restart_count
+  is_resolved: boolean("is_resolved").notNull().default(false),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  resolved_at: timestamp("resolved_at"),
+});
+
 // Insert schemas
 export const insertClusterSchema = createInsertSchema(clusters).omit({
   id: true,
@@ -103,6 +151,22 @@ export const insertOptimizationRecommendationSchema = createInsertSchema(optimiz
   created_at: true,
 });
 
+export const insertPodMetricSchema = createInsertSchema(podMetrics).omit({
+  id: true,
+  created_at: true,
+});
+
+export const insertDeploymentEventSchema = createInsertSchema(deploymentEvents).omit({
+  id: true,
+  created_at: true,
+});
+
+export const insertMonitoringAlertSchema = createInsertSchema(monitoringAlerts).omit({
+  id: true,
+  created_at: true,
+  resolved_at: true,
+});
+
 // Types
 export type Cluster = typeof clusters.$inferSelect;
 export type InsertCluster = z.infer<typeof insertClusterSchema>;
@@ -121,6 +185,15 @@ export type InsertAlert = z.infer<typeof insertAlertSchema>;
 
 export type OptimizationRecommendation = typeof optimizationRecommendations.$inferSelect;
 export type InsertOptimizationRecommendation = z.infer<typeof insertOptimizationRecommendationSchema>;
+
+export type PodMetric = typeof podMetrics.$inferSelect;
+export type InsertPodMetric = z.infer<typeof insertPodMetricSchema>;
+
+export type DeploymentEvent = typeof deploymentEvents.$inferSelect;
+export type InsertDeploymentEvent = z.infer<typeof insertDeploymentEventSchema>;
+
+export type MonitoringAlert = typeof monitoringAlerts.$inferSelect;
+export type InsertMonitoringAlert = z.infer<typeof insertMonitoringAlertSchema>;
 
 // Additional types for API responses
 export interface CostOverviewMetrics {
@@ -165,4 +238,60 @@ export interface DashboardFilters {
   clusters: string[];
   namespaces: string[];
   workloadTypes: string[];
+}
+
+// Additional types for monitoring data
+export interface PodHealthData {
+  podName: string;
+  status: string;
+  restartCount: number;
+  cpuUsage: number;
+  memoryUsage: number;
+  cpuLimit: number;
+  memoryLimit: number;
+  cpuUtilization: number;
+  memoryUtilization: number;
+  networkRxBytes: number;
+  networkTxBytes: number;
+  lastRestartTime?: Date;
+  uptime: number;
+}
+
+export interface WorkloadMonitoringData {
+  id: number;
+  name: string;
+  namespace: string;
+  type: string;
+  cluster: string;
+  replicas: number;
+  readyReplicas: number;
+  availableReplicas: number;
+  avgCpuUsage: number;
+  avgMemoryUsage: number;
+  totalRestarts: number;
+  status: string;
+  pods: PodHealthData[];
+}
+
+export interface ClusterMonitoringOverview {
+  totalPods: number;
+  runningPods: number;
+  pendingPods: number;
+  failedPods: number;
+  totalCpuUsage: number;
+  totalMemoryUsage: number;
+  totalCpuCapacity: number;
+  totalMemoryCapacity: number;
+  clusterUtilization: number;
+  totalRestarts: number;
+  activeAlerts: number;
+}
+
+export interface MetricTrendData {
+  timestamp: string;
+  cpuUsage: number;
+  memoryUsage: number;
+  podCount: number;
+  networkRx: number;
+  networkTx: number;
 }
