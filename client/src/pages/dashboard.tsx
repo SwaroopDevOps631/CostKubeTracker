@@ -168,42 +168,80 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Alerts Section */}
-          {alerts && alerts.length > 0 && (
-            <AlertsSection alerts={alerts} isLoading={isLoadingAlerts} />
-          )}
+          {/* Tabbed Dashboard Interface */}
+          <Tabs defaultValue="cost" className="w-full">
+            <div className="flex items-center justify-between mb-6">
+              <TabsList className="grid w-[400px] grid-cols-2">
+                <TabsTrigger value="cost" className="flex items-center space-x-2">
+                  <DollarSign className="h-4 w-4" />
+                  <span>Cost Monitoring</span>
+                </TabsTrigger>
+                <TabsTrigger value="monitoring" className="flex items-center space-x-2">
+                  <Activity className="h-4 w-4" />
+                  <span>Operational Monitoring</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-          {/* Cost Overview Cards */}
-          <CostOverviewCards 
-            data={costOverview} 
-            isLoading={isLoadingOverview} 
-          />
+            <TabsContent value="cost" className="space-y-8">
+              {/* Alerts Section */}
+              {alerts && alerts.length > 0 && (
+                <AlertsSection alerts={alerts} isLoading={isLoadingAlerts} />
+              )}
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <CostTrendChart 
-              data={costTrend || []} 
-              isLoading={isLoadingTrend} 
-            />
-            <NamespaceCostBreakdown 
-              data={namespaceCosts || []} 
-              isLoading={isLoadingNamespaces} 
-            />
-          </div>
+              {/* Cost Overview Cards */}
+              <CostOverviewCards 
+                data={costOverview} 
+                isLoading={isLoadingOverview} 
+              />
 
-          {/* Workload Cost Table */}
-          <WorkloadCostTable 
-            data={workloadCosts || []} 
-            isLoading={isLoadingWorkloads} 
-          />
+              {/* Charts Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <CostTrendChart 
+                  data={costTrend || []} 
+                  isLoading={isLoadingTrend} 
+                />
+                <NamespaceCostBreakdown 
+                  data={namespaceCosts || []} 
+                  isLoading={isLoadingNamespaces} 
+                />
+              </div>
 
-          {/* Optimization Recommendations */}
-          {recommendations && recommendations.length > 0 && (
-            <OptimizationRecommendations 
-              data={recommendations} 
-              isLoading={isLoadingRecommendations} 
-            />
-          )}
+              {/* Workload Cost Table */}
+              <WorkloadCostTable 
+                data={workloadCosts || []} 
+                isLoading={isLoadingWorkloads} 
+              />
+
+              {/* Optimization Recommendations */}
+              {recommendations && recommendations.length > 0 && (
+                <OptimizationRecommendations 
+                  data={recommendations} 
+                  isLoading={isLoadingRecommendations} 
+                />
+              )}
+            </TabsContent>
+
+            <TabsContent value="monitoring" className="space-y-8">
+              {/* Monitoring Overview Cards */}
+              <MonitoringOverviewCards 
+                data={monitoringOverview} 
+                isLoading={isLoadingMonitoringOverview} 
+              />
+              
+              {/* Metric Trends Chart */}
+              <MetricTrendsChart 
+                data={metricTrends || []} 
+                isLoading={isLoadingMetricTrends} 
+              />
+              
+              {/* Workload Monitoring Table */}
+              <WorkloadMonitoringTable 
+                data={workloadMonitoring || []} 
+                isLoading={isLoadingWorkloadMonitoring} 
+              />
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
     </div>
