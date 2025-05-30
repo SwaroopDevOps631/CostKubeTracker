@@ -99,6 +99,14 @@ export default function Dashboard() {
     const interval = setInterval(handleRefresh, 30000);
     return () => clearInterval(interval);
   }, []);
+  
+  // Handle errors
+  const handleApiError = (error: any) => {
+    console.error("API Error:", error);
+    return {
+      message: error?.message || "An unexpected error occurred"
+    };
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
